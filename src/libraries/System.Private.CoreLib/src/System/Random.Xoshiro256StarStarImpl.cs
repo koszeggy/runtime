@@ -255,10 +255,8 @@ namespace System
                 (NextUInt64() >> 40) * (1.0f / (1u << 24));
 
             public override double Sample()
-            {
-                Debug.Fail("Not used or called for this implementation.");
-                throw new NotSupportedException();
-            }
+                // Derived Random classes may call it when using BaseBehavior.Optimized.
+                => NextDouble();
         }
     }
 }

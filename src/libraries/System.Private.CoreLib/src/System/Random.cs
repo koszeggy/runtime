@@ -12,6 +12,36 @@ namespace System
     /// </summary>
     public partial class Random
     {
+        /// <summary>
+        /// Determines the behavior of the base members for a derived <see cref="Random"/> class
+        /// when using the protected <see cref="Random(BaseBehavior)">constructor</see>.
+        /// </summary>
+        protected enum BaseBehavior
+        {
+            /// <summary>
+            /// Determines that base <see cref="Random"/> members use the original implementation using a random seed.
+            /// Initialization of the seed occurs when instantiating a new instance, which allocates an array consuming 224 bytes.
+            /// This is the default behavior when relying on the parameterless base constructor.
+            /// </summary>
+            Compatible,
+
+            /// <summary>
+            /// Determines that base <see cref="Random"/> members use an optimized algorithm using a random seed.
+            /// Initialization of the seed occurs when instantiating a new instance, but it allocates less memory than the <see cref="Compatible"/> behavior.
+            /// Starting with .NET 6 this behavior is used also for a non-derived <see cref="Random"/> instance created by its default constructor
+            /// and for the static <see cref="Shared"/> instance.
+            /// </summary>
+            Optimized,
+
+            /// <summary>
+            /// Determines that all non-overridden <see cref="Random"/> members rely on the result of the <see cref="Sample"/> method.
+            /// Instantiating a new instance does not initialize any seed in the base <see cref="Random"/> class.
+            /// This is the recommended behavior if a derived class overrides either all possible members so it does not need any base logic,
+            /// or when you want to override only the <see cref="Sample"/> method to provide a fully-functional implementation.
+            /// </summary>
+            SampleBased
+        }
+
         /// <summary>The underlying generator implementation.</summary>
         /// <remarks>
         /// This is separated out so that different generators can be used based on how this Random instance is constructed.
@@ -39,6 +69,18 @@ namespace System
             // used in the past, but we can do so without having to deal with calling the right overrides in a derived type.
             // If this is a derived type, we need to handle always using the same overrides we've done previously.
             _impl = GetType() == typeof(Random) ? new Net5CompatSeedImpl(Seed) : new Net5CompatDerivedImpl(this, Seed);
+
+        /// <summary>
+        /// Initializes the base <see cref="Random"/> class for a derived type using a specified behavior.
+        /// </summary>
+        /// <param name="baseBehavior">A <see cref="BaseBehavior"/> value that determines how the base <see cref="Random"/> members should behave.</param>
+        protected Random(BaseBehavior baseBehavior) => _impl = baseBehavior switch
+        {
+            BaseBehavior.Compatible => new Net5CompatDerivedImpl(this),
+            BaseBehavior.Optimized => new XoshiroImpl(),
+            BaseBehavior.SampleBased => new SampleBasedImpl(this),
+            _ => throw new ArgumentOutOfRangeException(nameof(baseBehavior))
+        };
 
         /// <summary>Constructor used by <see cref="ThreadSafeRandom"/>.</summary>
         /// <param name="isThreadSafeRandom">Must be true.</param>
